@@ -1,0 +1,1742 @@
+// Transcrypt'ed from Python, 2019-03-09 15:24:14
+import {AssertionError, AttributeError, BaseException, DeprecationWarning, Exception, IndexError, IterableError, KeyError, NotImplementedError, RuntimeWarning, StopIteration, UserWarning, ValueError, Warning, __JsIterator__, __PyIterator__, __Terminal__, __add__, __and__, __call__, __class__, __envir__, __eq__, __floordiv__, __ge__, __get__, __getcm__, __getitem__, __getslice__, __getsm__, __gt__, __i__, __iadd__, __iand__, __idiv__, __ijsmod__, __ilshift__, __imatmul__, __imod__, __imul__, __in__, __init__, __ior__, __ipow__, __irshift__, __isub__, __ixor__, __jsUsePyNext__, __jsmod__, __k__, __kwargtrans__, __le__, __lshift__, __lt__, __matmul__, __mergefields__, __mergekwargtrans__, __mod__, __mul__, __ne__, __neg__, __nest__, __or__, __pow__, __pragma__, __proxy__, __pyUseJsNext__, __rshift__, __setitem__, __setproperty__, __setslice__, __sort__, __specialattrib__, __sub__, __super__, __t__, __terminal__, __truediv__, __withblock__, __xor__, abs, all, any, assert, bool, bytearray, bytes, callable, chr, copy, deepcopy, delattr, dict, dir, divmod, enumerate, filter, float, getattr, hasattr, input, int, isinstance, issubclass, len, list, map, max, min, object, ord, pow, print, property, py_TypeError, py_iter, py_metatype, py_next, py_reversed, py_typeof, range, repr, round, set, setattr, sorted, str, sum, tuple, zip} from './org.transcrypt.__runtime__.js';
+import {AliasEvent, CollectionEndEvent, CollectionStartEvent, DocumentEndEvent, DocumentStartEvent, Event, MappingEndEvent, MappingStartEvent, NodeEvent, ScalarEvent, SequenceEndEvent, SequenceStartEvent, StreamEndEvent, StreamStartEvent} from './events.js';
+import {AliasToken, AnchorToken, BlockEndToken, BlockEntryToken, BlockMappingStartToken, BlockSequenceStartToken, DirectiveToken, DocumentEndToken, DocumentStartToken, FlowEntryToken, FlowMappingEndToken, FlowMappingStartToken, FlowSequenceEndToken, FlowSequenceStartToken, KeyToken, ScalarToken, StreamEndToken, StreamStartToken, TagToken, Token, ValueToken} from './tokens.js';
+import {MarkedYAMLError} from './error.js';
+var __name__ = 'scanner';
+export var __all__ = ['Scanner', 'ScannerError'];
+export var ScannerError =  __class__ ('ScannerError', [MarkedYAMLError], {
+	__module__: __name__,
+});
+export var ParserError =  __class__ ('ParserError', [MarkedYAMLError], {
+	__module__: __name__,
+});
+export var SimpleKey =  __class__ ('SimpleKey', [object], {
+	__module__: __name__,
+	get __init__ () {return __get__ (this, function (self, token_number, required, index, line, column, mark) {
+		self.token_number = token_number;
+		self.required = required;
+		self.index = index;
+		self.line = line;
+		self.column = column;
+		self.mark = mark;
+	});}
+});
+export var Scanner =  __class__ ('Scanner', [object], {
+	__module__: __name__,
+	get __init__ () {return __get__ (this, function (self) {
+		self.done = false;
+		self.flow_level = 0;
+		self.tokens = [];
+		self.fetch_stream_start ();
+		self.tokens_taken = 0;
+		self.indent = -(1);
+		self.indents = [];
+		self.allow_simple_key = true;
+		self.possible_simple_keys = dict ({});
+		self.current_event = null;
+		self.yaml_version = null;
+		self.tag_handles = dict ({});
+		self.states = [];
+		self.marks = [];
+		self.state = self.parse_stream_start;
+	});},
+	get check_token () {return __get__ (this, function (self, choices) {
+		while (self.need_more_tokens ()) {
+			self.fetch_more_tokens ();
+		}
+		if (len (self.tokens) > 0) {
+			if (len (choices) < 1) {
+				return true;
+			}
+			for (var choice of choices) {
+				try {
+					console.log (choices);
+				}
+				catch (__except0__) {
+					print (choices);
+				}
+				if (isinstance (self.tokens [0], choice)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	});},
+	get peek_token () {return __get__ (this, function (self) {
+		while (self.need_more_tokens ()) {
+			self.fetch_more_tokens ();
+		}
+		if (len (self.tokens) > 0) {
+			try {
+				console.log (list (self.tokens));
+			}
+			catch (__except0__) {
+				print (self.tokens);
+			}
+			return self.tokens [0];
+		}
+		try {
+			console.log ('aaaaaaaaaa');
+			console.log (list (self.tokens));
+		}
+		catch (__except0__) {
+			print (self.tokens);
+		}
+		return null;
+	});},
+	get get_token () {return __get__ (this, function (self) {
+		while (self.need_more_tokens ()) {
+			self.fetch_more_tokens ();
+		}
+		if (len (self.tokens) > 0) {
+			self.tokens_taken++;
+			return self.tokens.py_pop (0);
+		}
+	});},
+	get need_more_tokens () {return __get__ (this, function (self) {
+		if (self.done) {
+			return false;
+		}
+		if (len (self.tokens) < 1) {
+			return true;
+		}
+		self.stale_possible_simple_keys ();
+		if (self.next_possible_simple_key () == self.tokens_taken) {
+			return true;
+		}
+	});},
+	get fetch_more_tokens () {return __get__ (this, function (self) {
+		self.scan_to_next_token ();
+		self.stale_possible_simple_keys ();
+		self.unwind_indent (self.column);
+		var ch = self.peek ();
+		try {
+			console.log (',,,,,,,,,,,');
+			console.log (ch);
+		}
+		catch (__except0__) {
+			print (',,,,,,,,,,,');
+			print (ch);
+		}
+		if (ch == '\x00') {
+			return self.fetch_stream_end ();
+		}
+		if (ch == '%' && self.check_directive ()) {
+			return self.fetch_directive ();
+		}
+		if (ch == '-' && self.check_document_start ()) {
+			return self.fetch_document_start ();
+		}
+		if (ch == '.' && self.check_document_end ()) {
+			return self.fetch_document_end ();
+		}
+		if (ch == '[') {
+			return self.fetch_flow_sequence_start ();
+		}
+		if (ch == '{') {
+			console.log ('xzcv');
+			return self.fetch_flow_mapping_start ();
+		}
+		if (ch == ']') {
+			return self.fetch_flow_sequence_end ();
+		}
+		if (ch == '}') {
+			return self.fetch_flow_mapping_end ();
+		}
+		if (ch == ',') {
+			return self.fetch_flow_entry ();
+		}
+		if (ch == '-' && self.check_block_entry ()) {
+			return self.fetch_block_entry ();
+		}
+		if (ch == '?' && self.check_key ()) {
+			return self.fetch_key ();
+		}
+		if (ch == ':' && self.check_value ()) {
+			return self.fetch_value ();
+		}
+		if (ch == '*') {
+			return self.fetch_alias ();
+		}
+		if (ch == '&') {
+			return self.fetch_anchor ();
+		}
+		if (ch == '!') {
+			return self.fetch_tag ();
+		}
+		if (ch == '|' && !(self.flow_level)) {
+			return self.fetch_literal ();
+		}
+		if (ch == '>' && !(self.flow_level)) {
+			return self.fetch_folded ();
+		}
+		if (ch == "'") {
+			return self.fetch_single ();
+		}
+		if (ch == '"') {
+			return self.fetch_double ();
+		}
+		if (self.check_plain ()) {
+			return self.fetch_plain ();
+		}
+		var __except0__ = ScannerError ('while scanning for the next token', null, __mod__ ('found character %r that cannot start any token', ch), self.get_mark ());
+		__except0__.__cause__ = null;
+		throw __except0__;
+	});},
+	get next_possible_simple_key () {return __get__ (this, function (self) {
+		var min_token_number = null;
+		for (var level of self.possible_simple_keys.py_keys ()) {
+			var key = self.possible_simple_keys [level];
+			if (min_token_number === null || key.token_number < min_token_number) {
+				var min_token_number = key.token_number;
+			}
+		}
+		return min_token_number;
+	});},
+	get stale_possible_simple_keys () {return __get__ (this, function (self) {
+		var kk = [];
+		for (var level of list (self.possible_simple_keys.py_keys ())) {
+			var key = self.possible_simple_keys [level];
+			if (key.line != self.line || self.index - key.index > 1024) {
+				if (key.required) {
+					var __except0__ = ScannerError ('while scanning a simple key', key.mark, "could not find expected ':'", self.get_mark ());
+					__except0__.__cause__ = null;
+					throw __except0__;
+				}
+				kk.append (level);
+			}
+		}
+		for (var level of kk) {
+			delete self.possible_simple_keys [level];
+		}
+	});},
+	get save_possible_simple_key () {return __get__ (this, function (self) {
+		var required = !(self.flow_level) && self.indent == self.column;
+		if (self.allow_simple_key) {
+			self.remove_possible_simple_key ();
+			var token_number = self.tokens_taken + len (self.tokens);
+			var key = SimpleKey (token_number, required, self.index, self.line, self.column, self.get_mark ());
+			self.possible_simple_keys [self.flow_level] = key;
+		}
+	});},
+	get remove_possible_simple_key () {return __get__ (this, function (self) {
+		var kk = [];
+		if (__in__ (self.flow_level, self.possible_simple_keys)) {
+			var key = self.possible_simple_keys [self.flow_level];
+			if (key.required) {
+				var __except0__ = ScannerError ('while scanning a simple key', key.mark, "could not find expected ':'", self.get_mark ());
+				__except0__.__cause__ = null;
+				throw __except0__;
+			}
+			kk.append (self.flow_level);
+		}
+		for (var d of kk) {
+			delete self.possible_simple_keys [d];
+		}
+	});},
+	get unwind_indent () {return __get__ (this, function (self, column) {
+		if (self.flow_level) {
+			return ;
+		}
+		while (self.indent > column) {
+			var mark = self.get_mark ();
+			self.indent = self.indents.py_pop ();
+			self.tokens.append (BlockEndToken (mark, mark));
+		}
+	});},
+	get add_indent () {return __get__ (this, function (self, column) {
+		if (self.indent < column) {
+			self.indents.append (self.indent);
+			self.indent = column;
+			return true;
+		}
+		return false;
+	});},
+	get fetch_stream_start () {return __get__ (this, function (self) {
+		var mark = self.get_mark ();
+		self.tokens.append (StreamStartToken (mark, mark, __kwargtrans__ ({encoding: self.encoding})));
+	});},
+	get fetch_stream_end () {return __get__ (this, function (self) {
+		self.unwind_indent (-(1));
+		self.remove_possible_simple_key ();
+		self.allow_simple_key = false;
+		self.possible_simple_keys = dict ({});
+		var mark = self.get_mark ();
+		self.tokens.append (StreamEndToken (mark, mark));
+		self.done = true;
+	});},
+	get fetch_directive () {return __get__ (this, function (self) {
+		self.unwind_indent (-(1));
+		self.remove_possible_simple_key ();
+		self.allow_simple_key = false;
+		self.tokens.append (self.scan_directive ());
+	});},
+	get fetch_document_start () {return __get__ (this, function (self) {
+		self.fetch_document_indicator (DocumentStartToken);
+	});},
+	get fetch_document_end () {return __get__ (this, function (self) {
+		self.fetch_document_indicator (DocumentEndToken);
+	});},
+	get fetch_document_indicator () {return __get__ (this, function (self, TokenClass) {
+		self.unwind_indent (-(1));
+		self.remove_possible_simple_key ();
+		self.allow_simple_key = false;
+		var start_mark = self.get_mark ();
+		self.forward (3);
+		var end_mark = self.get_mark ();
+		self.tokens.append (TokenClass (start_mark, end_mark));
+	});},
+	get fetch_flow_sequence_start () {return __get__ (this, function (self) {
+		self.fetch_flow_collection_start (FlowSequenceStartToken);
+	});},
+	get fetch_flow_mapping_start () {return __get__ (this, function (self) {
+		self.fetch_flow_collection_start (FlowMappingStartToken);
+	});},
+	get fetch_flow_collection_start () {return __get__ (this, function (self, TokenClass) {
+		self.save_possible_simple_key ();
+		self.flow_level++;
+		self.allow_simple_key = true;
+		var start_mark = self.get_mark ();
+		self.forward ();
+		var end_mark = self.get_mark ();
+		self.tokens.append (TokenClass (start_mark, end_mark));
+	});},
+	get fetch_flow_sequence_end () {return __get__ (this, function (self) {
+		self.fetch_flow_collection_end (FlowSequenceEndToken);
+	});},
+	get fetch_flow_mapping_end () {return __get__ (this, function (self) {
+		self.fetch_flow_collection_end (FlowMappingEndToken);
+	});},
+	get fetch_flow_collection_end () {return __get__ (this, function (self, TokenClass) {
+		self.remove_possible_simple_key ();
+		self.flow_level--;
+		self.allow_simple_key = false;
+		var start_mark = self.get_mark ();
+		self.forward ();
+		var end_mark = self.get_mark ();
+		self.tokens.append (TokenClass (start_mark, end_mark));
+	});},
+	get fetch_flow_entry () {return __get__ (this, function (self) {
+		self.allow_simple_key = true;
+		self.remove_possible_simple_key ();
+		var start_mark = self.get_mark ();
+		self.forward ();
+		var end_mark = self.get_mark ();
+		self.tokens.append (FlowEntryToken (start_mark, end_mark));
+	});},
+	get fetch_block_entry () {return __get__ (this, function (self) {
+		if (!(self.flow_level)) {
+			if (!(self.allow_simple_key)) {
+				var __except0__ = ScannerError (null, null, 'sequence entries are not allowed here', self.get_mark ());
+				__except0__.__cause__ = null;
+				throw __except0__;
+			}
+			if (self.add_indent (self.column)) {
+				var mark = self.get_mark ();
+				self.tokens.append (BlockSequenceStartToken (mark, mark));
+			}
+		}
+		else {
+			// pass;
+		}
+		self.allow_simple_key = true;
+		self.remove_possible_simple_key ();
+		var start_mark = self.get_mark ();
+		self.forward ();
+		var end_mark = self.get_mark ();
+		self.tokens.append (BlockEntryToken (start_mark, end_mark));
+	});},
+	get fetch_key () {return __get__ (this, function (self) {
+		if (!(self.flow_level)) {
+			if (!(self.allow_simple_key)) {
+				var __except0__ = ScannerError (null, null, 'mapping keys are not allowed here', self.get_mark ());
+				__except0__.__cause__ = null;
+				throw __except0__;
+			}
+			if (self.add_indent (self.column)) {
+				var mark = self.get_mark ();
+				self.tokens.append (BlockMappingStartToken (mark, mark));
+			}
+		}
+		self.allow_simple_key = !(self.flow_level);
+		self.remove_possible_simple_key ();
+		var start_mark = self.get_mark ();
+		self.forward ();
+		var end_mark = self.get_mark ();
+		self.tokens.append (KeyToken (start_mark, end_mark));
+	});},
+	get fetch_value () {return __get__ (this, function (self) {
+		if (__in__ (self.flow_level, self.possible_simple_keys)) {
+			var key = self.possible_simple_keys [self.flow_level];
+			delete self.possible_simple_keys [self.flow_level];
+			self.tokens.insert (key.token_number - self.tokens_taken, KeyToken (key.mark, key.mark));
+			if (!(self.flow_level)) {
+				if (self.add_indent (key.column)) {
+					self.tokens.insert (key.token_number - self.tokens_taken, BlockMappingStartToken (key.mark, key.mark));
+				}
+			}
+			self.allow_simple_key = false;
+		}
+		else {
+			if (!(self.flow_level)) {
+				if (!(self.allow_simple_key)) {
+					var __except0__ = ScannerError (null, null, 'mapping values are not allowed here', self.get_mark ());
+					__except0__.__cause__ = null;
+					throw __except0__;
+				}
+			}
+			if (!(self.flow_level)) {
+				if (self.add_indent (self.column)) {
+					var mark = self.get_mark ();
+					self.tokens.append (BlockMappingStartToken (mark, mark));
+				}
+			}
+			self.allow_simple_key = !(self.flow_level);
+			self.remove_possible_simple_key ();
+		}
+		var start_mark = self.get_mark ();
+		self.forward ();
+		var end_mark = self.get_mark ();
+		self.tokens.append (ValueToken (start_mark, end_mark));
+	});},
+	get fetch_alias () {return __get__ (this, function (self) {
+		self.save_possible_simple_key ();
+		self.allow_simple_key = false;
+		self.tokens.append (self.scan_anchor (AliasToken));
+	});},
+	get fetch_anchor () {return __get__ (this, function (self) {
+		self.save_possible_simple_key ();
+		self.allow_simple_key = false;
+		self.tokens.append (self.scan_anchor (AnchorToken));
+	});},
+	get fetch_tag () {return __get__ (this, function (self) {
+		self.save_possible_simple_key ();
+		self.allow_simple_key = false;
+		self.tokens.append (self.scan_tag ());
+	});},
+	get fetch_literal () {return __get__ (this, function (self) {
+		self.fetch_block_scalar (__kwargtrans__ ({style: '|'}));
+	});},
+	get fetch_folded () {return __get__ (this, function (self) {
+		self.fetch_block_scalar (__kwargtrans__ ({style: '>'}));
+	});},
+	get fetch_block_scalar () {return __get__ (this, function (self, style) {
+		self.allow_simple_key = true;
+		self.remove_possible_simple_key ();
+		self.tokens.append (self.scan_block_scalar (style));
+	});},
+	get fetch_single () {return __get__ (this, function (self) {
+		self.fetch_flow_scalar (__kwargtrans__ ({style: "'"}));
+	});},
+	get fetch_double () {return __get__ (this, function (self) {
+		self.fetch_flow_scalar (__kwargtrans__ ({style: '"'}));
+	});},
+	get fetch_flow_scalar () {return __get__ (this, function (self, style) {
+		self.save_possible_simple_key ();
+		self.allow_simple_key = false;
+		self.tokens.append (self.scan_flow_scalar (style));
+	});},
+	get fetch_plain () {return __get__ (this, function (self) {
+		self.save_possible_simple_key ();
+		self.allow_simple_key = false;
+		self.tokens.append (self.scan_plain ());
+	});},
+	get check_directive () {return __get__ (this, function (self) {
+		if (self.column == 0) {
+			return true;
+		}
+	});},
+	get check_document_start () {return __get__ (this, function (self) {
+		if (self.column == 0) {
+			if (self.prefix (3) == '---' && __in__ (self.peek (3), '\x00 \t\r\n\x85\u2028\u2029')) {
+				return true;
+			}
+		}
+	});},
+	get check_document_end () {return __get__ (this, function (self) {
+		if (self.column == 0) {
+			if (self.prefix (3) == '...' && __in__ (self.peek (3), '\x00 \t\r\n\x85\u2028\u2029')) {
+				return true;
+			}
+		}
+	});},
+	get check_block_entry () {return __get__ (this, function (self) {
+		return __in__ (self.peek (1), '\x00 \t\r\n\x85\u2028\u2029');
+	});},
+	get check_key () {return __get__ (this, function (self) {
+		if (self.flow_level) {
+			return true;
+		}
+		else {
+			return __in__ (self.peek (1), '\x00 \t\r\n\x85\u2028\u2029');
+		}
+	});},
+	get check_value () {return __get__ (this, function (self) {
+		if (self.flow_level) {
+			return true;
+		}
+		else {
+			return __in__ (self.peek (1), '\x00 \t\r\n\x85\u2028\u2029');
+		}
+	});},
+	get check_plain () {return __get__ (this, function (self) {
+		var ch = self.peek ();
+		return !__in__ (ch, '\x00 \t\r\n\x85\u2028\u2029-?:,[]{}#&*!|>\'"%@`') || !__in__ (self.peek (1), '\x00 \t\r\n\x85\u2028\u2029') && (ch == '-' || !(self.flow_level) && __in__ (ch, '?:'));
+	});},
+	get scan_to_next_token () {return __get__ (this, function (self) {
+		if (self.index == 0 && self.peek () == '\ufeff') {
+			self.forward ();
+		}
+		var found = false;
+		while (!(found)) {
+			while (self.peek () == ' ') {
+				self.forward ();
+			}
+			if (self.peek () == '#') {
+				while (!__in__ (self.peek (), '\x00\r\n\x85\u2028\u2029')) {
+					self.forward ();
+				}
+			}
+			if (self.scan_line_break ()) {
+				if (!(self.flow_level)) {
+					self.allow_simple_key = true;
+				}
+			}
+			else {
+				var found = true;
+			}
+		}
+	});},
+	get scan_directive () {return __get__ (this, function (self) {
+		var start_mark = self.get_mark ();
+		self.forward ();
+		var py_name = self.scan_directive_name (start_mark);
+		var value = null;
+		if (py_name == 'YAML') {
+			var value = self.scan_yaml_directive_value (start_mark);
+			var end_mark = self.get_mark ();
+		}
+		else if (py_name == 'TAG') {
+			var value = self.scan_tag_directive_value (start_mark);
+			var end_mark = self.get_mark ();
+		}
+		else {
+			var end_mark = self.get_mark ();
+			while (!__in__ (self.peek (), '\x00\r\n\x85\u2028\u2029')) {
+				self.forward ();
+			}
+		}
+		self.scan_directive_ignored_line (start_mark);
+		return DirectiveToken (py_name, value, start_mark, end_mark);
+	});},
+	get scan_directive_name () {return __get__ (this, function (self, start_mark) {
+		var length = 0;
+		var ch = self.peek (length);
+		while (('0' <= ch && ch <= '9') || ('A' <= ch && ch <= 'Z') || ('a' <= ch && ch <= 'z') || __in__ (ch, '-_')) {
+			length++;
+			var ch = self.peek (length);
+		}
+		if (!(length)) {
+			var __except0__ = ScannerError ('while scanning a directive', start_mark, __mod__ ('expected alphabetic or numeric character, but found %r', ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		var value = self.prefix (length);
+		self.forward (length);
+		var ch = self.peek ();
+		if (!__in__ (ch, '\x00 \r\n\x85\u2028\u2029')) {
+			var __except0__ = ScannerError ('while scanning a directive', start_mark, __mod__ ('expected alphabetic or numeric character, but found %r', ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		return value;
+	});},
+	get scan_yaml_directive_value () {return __get__ (this, function (self, start_mark) {
+		while (self.peek () == ' ') {
+			self.forward ();
+		}
+		var major = self.scan_yaml_directive_number (start_mark);
+		if (self.peek () != '.') {
+			var __except0__ = ScannerError ('while scanning a directive', start_mark, __mod__ ("expected a digit or '.', but found %r", self.peek ()), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		self.forward ();
+		var minor = self.scan_yaml_directive_number (start_mark);
+		if (!__in__ (self.peek (), '\x00 \r\n\x85\u2028\u2029')) {
+			var __except0__ = ScannerError ('while scanning a directive', start_mark, __mod__ ("expected a digit or ' ', but found %r", self.peek ()), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		return tuple ([major, minor]);
+	});},
+	get scan_yaml_directive_number () {return __get__ (this, function (self, start_mark) {
+		var ch = self.peek ();
+		if (!(('0' <= ch && ch <= '9'))) {
+			var __except0__ = ScannerError ('while scanning a directive', start_mark, __mod__ ('expected a digit, but found %r', ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		var length = 0;
+		while (('0' <= self.peek (length) && self.peek (length) <= '9')) {
+			length++;
+		}
+		var value = int (self.prefix (length));
+		self.forward (length);
+		return value;
+	});},
+	get scan_tag_directive_value () {return __get__ (this, function (self, start_mark) {
+		while (self.peek () == ' ') {
+			self.forward ();
+		}
+		var handle = self.scan_tag_directive_handle (start_mark);
+		while (self.peek () == ' ') {
+			self.forward ();
+		}
+		var prefix = self.scan_tag_directive_prefix (start_mark);
+		return tuple ([handle, prefix]);
+	});},
+	get scan_tag_directive_handle () {return __get__ (this, function (self, start_mark) {
+		var value = self.scan_tag_handle ('directive', start_mark);
+		var ch = self.peek ();
+		if (ch != ' ') {
+			var __except0__ = ScannerError ('while scanning a directive', start_mark, __mod__ ("expected ' ', but found %r", ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		return value;
+	});},
+	get scan_tag_directive_prefix () {return __get__ (this, function (self, start_mark) {
+		var value = self.scan_tag_uri ('directive', start_mark);
+		var ch = self.peek ();
+		if (!__in__ (ch, '\x00 \r\n\x85\u2028\u2029')) {
+			var __except0__ = ScannerError ('while scanning a directive', start_mark, __mod__ ("expected ' ', but found %r", ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		return value;
+	});},
+	get scan_directive_ignored_line () {return __get__ (this, function (self, start_mark) {
+		while (self.peek () == ' ') {
+			self.forward ();
+		}
+		if (self.peek () == '#') {
+			while (!__in__ (self.peek (), '\x00\r\n\x85\u2028\u2029')) {
+				self.forward ();
+			}
+		}
+		var ch = self.peek ();
+		if (!__in__ (ch, '\x00\r\n\x85\u2028\u2029')) {
+			var __except0__ = ScannerError ('while scanning a directive', start_mark, __mod__ ('expected a comment or a line break, but found %r', ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		self.scan_line_break ();
+	});},
+	get scan_anchor () {return __get__ (this, function (self, TokenClass) {
+		var start_mark = self.get_mark ();
+		var indicator = self.peek ();
+		if (indicator == '*') {
+			var py_name = 'alias';
+		}
+		else {
+			var py_name = 'anchor';
+		}
+		self.forward ();
+		var length = 0;
+		var ch = self.peek (length);
+		while (('0' <= ch && ch <= '9') || ('A' <= ch && ch <= 'Z') || ('a' <= ch && ch <= 'z') || __in__ (ch, '-_')) {
+			length++;
+			var ch = self.peek (length);
+		}
+		if (!(length)) {
+			var __except0__ = ScannerError (__mod__ ('while scanning an %s', py_name), start_mark, __mod__ ('expected alphabetic or numeric character, but found %r', ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		var value = self.prefix (length);
+		self.forward (length);
+		var ch = self.peek ();
+		if (!__in__ (ch, '\x00 \t\r\n\x85\u2028\u2029?:,]}%@`')) {
+			var __except0__ = ScannerError (__mod__ ('while scanning an %s', py_name), start_mark, __mod__ ('expected alphabetic or numeric character, but found %r', ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		var end_mark = self.get_mark ();
+		return TokenClass (value, start_mark, end_mark);
+	});},
+	get scan_tag () {return __get__ (this, function (self) {
+		var start_mark = self.get_mark ();
+		var ch = self.peek (1);
+		if (ch == '<') {
+			var handle = null;
+			self.forward (2);
+			var suffix = self.scan_tag_uri ('tag', start_mark);
+			if (self.peek () != '>') {
+				var __except0__ = ScannerError ('while parsing a tag', start_mark, __mod__ ("expected '>', but found %r", self.peek ()), self.get_mark ());
+				__except0__.__cause__ = null;
+				throw __except0__;
+			}
+			self.forward ();
+		}
+		else if (__in__ (ch, '\x00 \t\r\n\x85\u2028\u2029')) {
+			var handle = null;
+			var suffix = '!';
+			self.forward ();
+		}
+		else {
+			var length = 1;
+			var use_handle = false;
+			while (!__in__ (ch, '\x00 \r\n\x85\u2028\u2029')) {
+				if (ch == '!') {
+					var use_handle = true;
+					break;
+				}
+				length++;
+				var ch = self.peek (length);
+			}
+			var handle = '!';
+			if (use_handle) {
+				var handle = self.scan_tag_handle ('tag', start_mark);
+			}
+			else {
+				var handle = '!';
+				self.forward ();
+			}
+			var suffix = self.scan_tag_uri ('tag', start_mark);
+		}
+		var ch = self.peek ();
+		if (!__in__ (ch, '\x00 \r\n\x85\u2028\u2029')) {
+			var __except0__ = ScannerError ('while scanning a tag', start_mark, __mod__ ("expected ' ', but found %r", ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		var value = tuple ([handle, suffix]);
+		var end_mark = self.get_mark ();
+		return TagToken (value, start_mark, end_mark);
+	});},
+	get scan_block_scalar () {return __get__ (this, function (self, style) {
+		if (style == '>') {
+			var folded = true;
+		}
+		else {
+			var folded = false;
+		}
+		var chunks = [];
+		var start_mark = self.get_mark ();
+		self.forward ();
+		var __left0__ = self.scan_block_scalar_indicators (start_mark);
+		var chomping = __left0__ [0];
+		var increment = __left0__ [1];
+		self.scan_block_scalar_ignored_line (start_mark);
+		var min_indent = self.indent + 1;
+		if (min_indent < 1) {
+			var min_indent = 1;
+		}
+		if (increment === null) {
+			var __left0__ = self.scan_block_scalar_indentation ();
+			var breaks = __left0__ [0];
+			var max_indent = __left0__ [1];
+			var end_mark = __left0__ [2];
+			var indent = max (min_indent, max_indent);
+		}
+		else {
+			var indent = (min_indent + increment) - 1;
+			var __left0__ = self.scan_block_scalar_breaks (indent);
+			var breaks = __left0__ [0];
+			var end_mark = __left0__ [1];
+		}
+		var line_break = '';
+		while (self.column == indent && self.peek () != '\x00') {
+			chunks.extend (breaks);
+			var leading_non_space = !__in__ (self.peek (), ' \t');
+			var length = 0;
+			while (!__in__ (self.peek (length), '\x00\r\n\x85\u2028\u2029')) {
+				length++;
+			}
+			chunks.append (self.prefix (length));
+			self.forward (length);
+			var line_break = self.scan_line_break ();
+			var __left0__ = self.scan_block_scalar_breaks (indent);
+			var breaks = __left0__ [0];
+			var end_mark = __left0__ [1];
+			if (self.column == indent && self.peek () != '\x00') {
+				if (folded && line_break == '\n' && leading_non_space && !__in__ (self.peek (), ' \t')) {
+					if (!(breaks)) {
+						chunks.append (' ');
+					}
+				}
+				else {
+					chunks.append (line_break);
+				}
+			}
+			else {
+				break;
+			}
+		}
+		if (chomping !== false) {
+			chunks.append (line_break);
+		}
+		if (chomping === true) {
+			chunks.extend (breaks);
+		}
+		return ScalarToken (''.join (chunks), false, start_mark, end_mark, style);
+	});},
+	get scan_block_scalar_indicators () {return __get__ (this, function (self, start_mark) {
+		var chomping = null;
+		var increment = null;
+		var ch = self.peek ();
+		if (__in__ (ch, '+-')) {
+			if (ch == '+') {
+				var chomping = true;
+			}
+			else {
+				var chomping = false;
+			}
+			self.forward ();
+			var ch = self.peek ();
+			if (__in__ (ch, '0123456789')) {
+				var increment = int (ch);
+				if (increment == 0) {
+					var __except0__ = ScannerError ('while scanning a block scalar', start_mark, 'expected indentation indicator in the range 1-9, but found 0', self.get_mark ());
+					__except0__.__cause__ = null;
+					throw __except0__;
+				}
+				self.forward ();
+			}
+		}
+		else if (__in__ (ch, '0123456789')) {
+			var increment = int (ch);
+			if (increment == 0) {
+				var __except0__ = ScannerError ('while scanning a block scalar', start_mark, 'expected indentation indicator in the range 1-9, but found 0', self.get_mark ());
+				__except0__.__cause__ = null;
+				throw __except0__;
+			}
+			self.forward ();
+			var ch = self.peek ();
+			if (__in__ (ch, '+-')) {
+				if (ch == '+') {
+					var chomping = true;
+				}
+				else {
+					var chomping = false;
+				}
+				self.forward ();
+			}
+		}
+		var ch = self.peek ();
+		if (!__in__ (ch, '\x00 \r\n\x85\u2028\u2029')) {
+			var __except0__ = ScannerError ('while scanning a block scalar', start_mark, __mod__ ('expected chomping or indentation indicators, but found %r', ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		return tuple ([chomping, increment]);
+	});},
+	get scan_block_scalar_ignored_line () {return __get__ (this, function (self, start_mark) {
+		while (self.peek () == ' ') {
+			self.forward ();
+		}
+		if (self.peek () == '#') {
+			while (!__in__ (self.peek (), '\x00\r\n\x85\u2028\u2029')) {
+				self.forward ();
+			}
+		}
+		var ch = self.peek ();
+		if (!__in__ (ch, '\x00\r\n\x85\u2028\u2029')) {
+			var __except0__ = ScannerError ('while scanning a block scalar', start_mark, __mod__ ('expected a comment or a line break, but found %r', ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		self.scan_line_break ();
+	});},
+	get scan_block_scalar_indentation () {return __get__ (this, function (self) {
+		var chunks = [];
+		var max_indent = 0;
+		var end_mark = self.get_mark ();
+		while (__in__ (self.peek (), ' \r\n\x85\u2028\u2029')) {
+			if (self.peek () != ' ') {
+				chunks.append (self.scan_line_break ());
+				var end_mark = self.get_mark ();
+			}
+			else {
+				self.forward ();
+				if (self.column > max_indent) {
+					var max_indent = self.column;
+				}
+			}
+		}
+		return tuple ([chunks, max_indent, end_mark]);
+	});},
+	get scan_block_scalar_breaks () {return __get__ (this, function (self, indent) {
+		var chunks = [];
+		var end_mark = self.get_mark ();
+		while (self.column < indent && self.peek () == ' ') {
+			self.forward ();
+		}
+		while (__in__ (self.peek (), '\r\n\x85\u2028\u2029')) {
+			chunks.append (self.scan_line_break ());
+			var end_mark = self.get_mark ();
+			while (self.column < indent && self.peek () == ' ') {
+				self.forward ();
+			}
+		}
+		return tuple ([chunks, end_mark]);
+	});},
+	get scan_flow_scalar () {return __get__ (this, function (self, style) {
+		if (style == '"') {
+			var double = true;
+		}
+		else {
+			var double = false;
+		}
+		var chunks = [];
+		var start_mark = self.get_mark ();
+		var quote = self.peek ();
+		self.forward ();
+		chunks.extend (self.scan_flow_scalar_non_spaces (double, start_mark));
+		while (self.peek () != quote) {
+			chunks.extend (self.scan_flow_scalar_spaces (double, start_mark));
+			chunks.extend (self.scan_flow_scalar_non_spaces (double, start_mark));
+		}
+		self.forward ();
+		var end_mark = self.get_mark ();
+		return ScalarToken (''.join (chunks), false, start_mark, end_mark, style);
+	});},
+	ESCAPE_REPLACEMENTS: dict ({'0': '\x00', 'a': '\x07', 'b': '\x08', 't': '\t', '\t': '\t', 'n': '\n', 'v': '\x0b', 'f': '\x0c', 'r': '\r', 'e': '\x1b', ' ': ' ', '"': '"', '\\': '\\', 'N': '\x85', '_': '\xa0', 'L': '\u2028', 'P': '\u2029'}),
+	ESCAPE_CODES: dict ({'x': 2, 'u': 4, 'U': 8}),
+	get scan_flow_scalar_non_spaces () {return __get__ (this, function (self, double, start_mark) {
+		var chunks = [];
+		while (true) {
+			var length = 0;
+			while (!__in__ (self.peek (length), '\'"\\\x00 \t\r\n\x85\u2028\u2029')) {
+				length++;
+			}
+			if (length) {
+				chunks.append (self.prefix (length));
+				self.forward (length);
+			}
+			var ch = self.peek ();
+			if (!(double) && ch == "'" && self.peek (1) == "'") {
+				chunks.append ("'");
+				self.forward (2);
+			}
+			else if (double && ch == "'" || !(double) && __in__ (ch, '"\\')) {
+				chunks.append (ch);
+				self.forward ();
+			}
+			else if (double && ch == '\\') {
+				self.forward ();
+				var ch = self.peek ();
+				if (__in__ (ch, self.ESCAPE_REPLACEMENTS)) {
+					chunks.append (self.ESCAPE_REPLACEMENTS [ch]);
+					self.forward ();
+				}
+				else if (__in__ (ch, self.ESCAPE_CODES)) {
+					var length = self.ESCAPE_CODES [ch];
+					self.forward ();
+					for (var k = 0; k < length; k++) {
+						if (!__in__ (self.peek (k), '0123456789ABCDEFabcdef')) {
+							var __except0__ = ScannerError ('while scanning a double-quoted scalar', start_mark, __mod__ ('expected escape sequence of %d hexdecimal numbers, but found %r', tuple ([length, self.peek (k)])), self.get_mark ());
+							__except0__.__cause__ = null;
+							throw __except0__;
+						}
+					}
+					var code = int (self.prefix (length), 16);
+					chunks.append (chr (code));
+					self.forward (length);
+				}
+				else if (__in__ (ch, '\r\n\x85\u2028\u2029')) {
+					self.scan_line_break ();
+					chunks.extend (self.scan_flow_scalar_breaks (double, start_mark));
+				}
+				else {
+					var __except0__ = ScannerError ('while scanning a double-quoted scalar', start_mark, __mod__ ('found unknown escape character %r', ch), self.get_mark ());
+					__except0__.__cause__ = null;
+					throw __except0__;
+				}
+			}
+			else {
+				return chunks;
+			}
+		}
+	});},
+	get scan_flow_scalar_spaces () {return __get__ (this, function (self, double, start_mark) {
+		var chunks = [];
+		var length = 0;
+		while (__in__ (self.peek (length), ' \t')) {
+			length++;
+		}
+		var whitespaces = self.prefix (length);
+		self.forward (length);
+		var ch = self.peek ();
+		if (ch == '\x00') {
+			var __except0__ = ScannerError ('while scanning a quoted scalar', start_mark, 'found unexpected end of stream', self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		else if (__in__ (ch, '\r\n\x85\u2028\u2029')) {
+			var line_break = self.scan_line_break ();
+			var breaks = self.scan_flow_scalar_breaks (double, start_mark);
+			if (line_break != '\n') {
+				chunks.append (line_break);
+			}
+			else if (!(breaks)) {
+				chunks.append (' ');
+			}
+			chunks.extend (breaks);
+		}
+		else {
+			chunks.append (whitespaces);
+		}
+		return chunks;
+	});},
+	get scan_flow_scalar_breaks () {return __get__ (this, function (self, double, start_mark) {
+		var chunks = [];
+		while (true) {
+			var prefix = self.prefix (3);
+			if ((prefix == '---' || prefix == '...') && __in__ (self.peek (3), '\x00 \t\r\n\x85\u2028\u2029')) {
+				var __except0__ = ScannerError ('while scanning a quoted scalar', start_mark, 'found unexpected document separator', self.get_mark ());
+				__except0__.__cause__ = null;
+				throw __except0__;
+			}
+			while (__in__ (self.peek (), ' \t')) {
+				self.forward ();
+			}
+			if (__in__ (self.peek (), '\r\n\x85\u2028\u2029')) {
+				chunks.append (self.scan_line_break ());
+			}
+			else {
+				return chunks;
+			}
+		}
+	});},
+	get scan_plain () {return __get__ (this, function (self) {
+		var chunks = [];
+		var start_mark = self.get_mark ();
+		var end_mark = start_mark;
+		var indent = self.indent + 1;
+		var spaces = [];
+		while (true) {
+			var length = 0;
+			if (self.peek () == '#') {
+				break;
+			}
+			while (true) {
+				var ch = self.peek (length);
+				if (__in__ (ch, '\x00 \t\r\n\x85\u2028\u2029') || !(self.flow_level) && ch == ':' && __in__ (self.peek (length + 1), '\x00 \t\r\n\x85\u2028\u2029') || self.flow_level && __in__ (ch, ',:?[]{}')) {
+					break;
+				}
+				length++;
+			}
+			if (self.flow_level && ch == ':' && !__in__ (self.peek (length + 1), '\x00 \t\r\n\x85\u2028\u2029,[]{}')) {
+				self.forward (length);
+				var __except0__ = ScannerError ('while scanning a plain scalar', start_mark, "found unexpected ':'", self.get_mark (), 'Please check http://pyyaml.org/wiki/YAMLColonInFlowContext for details.');
+				__except0__.__cause__ = null;
+				throw __except0__;
+			}
+			if (length == 0) {
+				break;
+			}
+			self.allow_simple_key = false;
+			chunks.extend (spaces);
+			chunks.append (self.prefix (length));
+			self.forward (length);
+			var end_mark = self.get_mark ();
+			var spaces = self.scan_plain_spaces (indent, start_mark);
+			if (!(spaces) || self.peek () == '#' || !(self.flow_level) && self.column < indent) {
+				break;
+			}
+		}
+		return ScalarToken (''.join (chunks), true, start_mark, end_mark);
+	});},
+	get scan_plain_spaces () {return __get__ (this, function (self, indent, start_mark) {
+		var chunks = [];
+		var length = 0;
+		while (__in__ (self.peek (length), ' ')) {
+			length++;
+		}
+		var whitespaces = self.prefix (length);
+		self.forward (length);
+		var ch = self.peek ();
+		if (__in__ (ch, '\r\n\x85\u2028\u2029')) {
+			var line_break = self.scan_line_break ();
+			self.allow_simple_key = true;
+			var prefix = self.prefix (3);
+			if ((prefix == '---' || prefix == '...') && __in__ (self.peek (3), '\x00 \t\r\n\x85\u2028\u2029')) {
+				return ;
+			}
+			var breaks = [];
+			while (__in__ (self.peek (), ' \r\n\x85\u2028\u2029')) {
+				if (self.peek () == ' ') {
+					self.forward ();
+				}
+				else {
+					breaks.append (self.scan_line_break ());
+					var prefix = self.prefix (3);
+					if ((prefix == '---' || prefix == '...') && __in__ (self.peek (3), '\x00 \t\r\n\x85\u2028\u2029')) {
+						return ;
+					}
+				}
+			}
+			if (line_break != '\n') {
+				chunks.append (line_break);
+			}
+			else if (!(breaks)) {
+				chunks.append (' ');
+			}
+			chunks.extend (breaks);
+		}
+		else if (whitespaces) {
+			chunks.append (whitespaces);
+		}
+		return chunks;
+	});},
+	get scan_tag_handle () {return __get__ (this, function (self, py_name, start_mark) {
+		var ch = self.peek ();
+		if (ch != '!') {
+			var __except0__ = ScannerError (__mod__ ('while scanning a %s', py_name), start_mark, __mod__ ("expected '!', but found %r", ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		var length = 1;
+		var ch = self.peek (length);
+		if (ch != ' ') {
+			while (('0' <= ch && ch <= '9') || ('A' <= ch && ch <= 'Z') || ('a' <= ch && ch <= 'z') || __in__ (ch, '-_')) {
+				length++;
+				var ch = self.peek (length);
+			}
+			if (ch != '!') {
+				self.forward (length);
+				var __except0__ = ScannerError (__mod__ ('while scanning a %s', py_name), start_mark, __mod__ ("expected '!', but found %r", ch), self.get_mark ());
+				__except0__.__cause__ = null;
+				throw __except0__;
+			}
+			length++;
+		}
+		var value = self.prefix (length);
+		self.forward (length);
+		return value;
+	});},
+	get scan_tag_uri () {return __get__ (this, function (self, py_name, start_mark) {
+		var chunks = [];
+		var length = 0;
+		var ch = self.peek (length);
+		while (('0' <= ch && ch <= '9') || ('A' <= ch && ch <= 'Z') || ('a' <= ch && ch <= 'z') || __in__ (ch, "-;/?:@&=+$,_.!~*'()[]%")) {
+			if (ch == '%') {
+				chunks.append (self.prefix (length));
+				self.forward (length);
+				var length = 0;
+				chunks.append (self.scan_uri_escapes (py_name, start_mark));
+			}
+			else {
+				length++;
+			}
+			var ch = self.peek (length);
+		}
+		if (length) {
+			chunks.append (self.prefix (length));
+			self.forward (length);
+			var length = 0;
+		}
+		if (!(chunks)) {
+			var __except0__ = ScannerError (__mod__ ('while parsing a %s', py_name), start_mark, __mod__ ('expected URI, but found %r', ch), self.get_mark ());
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		return ''.join (chunks);
+	});},
+	get scan_uri_escapes () {return __get__ (this, function (self, py_name, start_mark) {
+		var codes = [];
+		var mark = self.get_mark ();
+		while (self.peek () == '%') {
+			self.forward ();
+			for (var k = 0; k < 2; k++) {
+				if (!__in__ (self.peek (k), '0123456789ABCDEFabcdef')) {
+					var __except0__ = ScannerError (__mod__ ('while scanning a %s', py_name), start_mark, __mod__ ('expected URI escape sequence of 2 hexdecimal numbers, but found %r', self.peek (k)), self.get_mark ());
+					__except0__.__cause__ = null;
+					throw __except0__;
+				}
+			}
+			codes.append (int (self.prefix (2), 16));
+			self.forward (2);
+		}
+		try {
+			var value = bytes (codes).decode ('utf-8');
+		}
+		catch (__except0__) {
+			if (isinstance (__except0__, UnicodeDecodeError)) {
+				var exc = __except0__;
+				var __except1__ = ScannerError (__mod__ ('while scanning a %s', py_name), start_mark, str (exc), mark);
+				__except1__.__cause__ = null;
+				throw __except1__;
+			}
+			else {
+				throw __except0__;
+			}
+		}
+		return value;
+	});},
+	get scan_line_break () {return __get__ (this, function (self) {
+		var ch = self.peek ();
+		if (__in__ (ch, '\r\n\x85')) {
+			if (self.prefix (2) == '\r\n') {
+				self.forward (2);
+			}
+			else {
+				self.forward ();
+			}
+			return '\n';
+		}
+		else if (__in__ (ch, '\u2028\u2029')) {
+			self.forward ();
+			return ch;
+		}
+		return '';
+	});},
+	DEFAULT_TAGS: dict ({'!': '!', '!!': 'tag:yaml.org,2002:'}),
+	get dispose () {return __get__ (this, function (self) {
+		self.states = [];
+		self.state = null;
+	});},
+	get check_event () {return __get__ (this, function (self) {
+		var choices = tuple ([].slice.apply (arguments).slice (1));
+		if (self.current_event === null) {
+			if (self.state) {
+				self.current_event = self.state ();
+			}
+		}
+		if (self.current_event !== null) {
+			if (!(choices)) {
+				return true;
+			}
+			for (var choice of choices) {
+				if (isinstance (self.current_event, choice)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	});},
+	get peek_event () {return __get__ (this, function (self) {
+		if (self.current_event === null) {
+			if (self.state) {
+				self.current_event = self.state ();
+			}
+		}
+		return self.current_event;
+	});},
+	get get_event () {return __get__ (this, function (self) {
+		if (self.current_event === null) {
+			if (self.state) {
+				self.current_event = self.state ();
+			}
+		}
+		var value = self.current_event;
+		self.current_event = null;
+		return value;
+	});},
+	get parse_stream_start () {return __get__ (this, function (self) {
+		var token = self.get_token ();
+		var event = StreamStartEvent (token.start_mark, token.end_mark, __kwargtrans__ ({encoding: token.encoding}));
+		self.state = self.parse_implicit_document_start;
+		return event;
+	});},
+	get parse_implicit_document_start () {return __get__ (this, function (self) {
+		if (!(self.check_token ([DirectiveToken, DocumentStartToken, StreamEndToken]))) {
+			self.tag_handles = self.DEFAULT_TAGS;
+			var token = self.peek_token ();
+			var __left0__ = token.start_mark;
+			var start_mark = __left0__;
+			var end_mark = __left0__;
+			var event = DocumentStartEvent (start_mark, end_mark, __kwargtrans__ ({explicit: false}));
+			self.states.append (self.parse_document_end);
+			self.state = self.parse_block_node;
+			return event;
+		}
+		else {
+			return self.parse_document_start ();
+		}
+	});},
+	get parse_document_start () {return __get__ (this, function (self) {
+		while (self.check_token ([DocumentEndToken])) {
+			self.get_token ();
+		}
+		if (!(self.check_token ([StreamEndToken]))) {
+			var token = self.peek_token ();
+			var start_mark = token.start_mark;
+			var __left0__ = self.process_directives ();
+			var version = __left0__ [0];
+			var tags = __left0__ [1];
+			if (!(self.check_token ([DocumentStartToken]))) {
+				var __except0__ = ParserError (null, null, "expected '<document start>', but found {}".format (self.peek_token ().id), self.peek_token ().start_mark);
+				__except0__.__cause__ = null;
+				throw __except0__;
+			}
+			var token = self.get_token ();
+			var end_mark = token.end_mark;
+			var event = DocumentStartEvent (start_mark, end_mark, __kwargtrans__ ({explicit: true, version: version, tags: tags}));
+			self.states.append (self.parse_document_end);
+			self.state = self.parse_document_content;
+		}
+		else {
+			var token = self.get_token ();
+			var event = StreamEndEvent (token.start_mark, token.end_mark);
+			self.state = null;
+		}
+		return event;
+	});},
+	get parse_document_end () {return __get__ (this, function (self) {
+		var token = self.peek_token ();
+		var __left0__ = token.start_mark;
+		var start_mark = __left0__;
+		var end_mark = __left0__;
+		var explicit = false;
+		if (self.check_token ([DocumentEndToken])) {
+			var token = self.get_token ();
+			var end_mark = token.end_mark;
+			var explicit = true;
+		}
+		var event = DocumentEndEvent (start_mark, end_mark, __kwargtrans__ ({explicit: explicit}));
+		self.state = self.parse_document_start;
+		return event;
+	});},
+	get parse_document_content () {return __get__ (this, function (self) {
+		if (self.check_token ([DirectiveToken, DocumentStartToken, DocumentEndToken, StreamEndToken])) {
+			var event = self.process_empty_scalar (self.peek_token ().start_mark);
+			self.state = self.states.py_pop ();
+			return event;
+		}
+		else {
+			return self.parse_block_node ();
+		}
+	});},
+	get process_directives () {return __get__ (this, function (self) {
+		self.yaml_version = null;
+		self.tag_handles = dict ({});
+		while (self.check_token ([DirectiveToken])) {
+			var token = self.get_token ();
+			if (token.py_name == 'YAML') {
+				if (self.yaml_version !== null) {
+					var __except0__ = ParserError (null, null, 'found duplicate YAML directive', token.start_mark);
+					__except0__.__cause__ = null;
+					throw __except0__;
+				}
+				var __left0__ = token.value;
+				var major = __left0__ [0];
+				var minor = __left0__ [1];
+				if (major != 1) {
+					var __except0__ = ParserError (null, null, 'found incompatible YAML document (version 1.* is required)', token.start_mark);
+					__except0__.__cause__ = null;
+					throw __except0__;
+				}
+				self.yaml_version = token.value;
+			}
+			else if (token.py_name == 'TAG') {
+				var __left0__ = token.value;
+				var handle = __left0__ [0];
+				var prefix = __left0__ [1];
+				if (__in__ (handle, list (self.tag_handles.py_keys ()))) {
+					var __except0__ = ParserError (null, null, 'duplicate tag handle {}'.format (handle), token.start_mark);
+					__except0__.__cause__ = null;
+					throw __except0__;
+				}
+				self.tag_handles [handle] = prefix;
+			}
+		}
+		if (len (list (self.tag_handles.py_keys ())) > 0) {
+			var value = tuple ([self.yaml_version, self.tag_handles.copy ()]);
+		}
+		else {
+			var value = tuple ([self.yaml_version, null]);
+		}
+		for (var key of self.DEFAULT_TAGS.py_keys ()) {
+			if (!__in__ (key, self.tag_handles)) {
+				self.tag_handles [key] = self.DEFAULT_TAGS [key];
+			}
+		}
+		return value;
+	});},
+	get parse_block_node () {return __get__ (this, function (self) {
+		console.log ('parse_block_node');
+		print ('parse_block_node');
+		return self.parse_node (true);
+	});},
+	get parse_flow_node () {return __get__ (this, function (self) {
+		console.log ('parse_flow_node');
+		print ('parse_flow_node');
+		return self.parse_node ();
+	});},
+	get parse_block_node_or_indentless_sequence () {return __get__ (this, function (self) {
+		return self.parse_node (__kwargtrans__ ({block: true, indentless_sequence: true}));
+	});},
+	get parse_node () {return __get__ (this, function (self, block, indentless_sequence) {
+		if (typeof block == 'undefined' || (block != null && block.hasOwnProperty ("__kwargtrans__"))) {;
+			var block = false;
+		};
+		if (typeof indentless_sequence == 'undefined' || (indentless_sequence != null && indentless_sequence.hasOwnProperty ("__kwargtrans__"))) {;
+			var indentless_sequence = false;
+		};
+		if (self.check_token ([AliasToken])) {
+			var token = self.get_token ();
+			var event = AliasEvent (token.value, token.start_mark, token.end_mark);
+			self.state = self.states.py_pop ();
+		}
+		else {
+			var anchor = null;
+			var tag = null;
+			var __left0__ = null;
+			var start_mark = __left0__;
+			var end_mark = __left0__;
+			var tag_mark = __left0__;
+			if (self.check_token ([AnchorToken])) {
+				var token = self.get_token ();
+				var start_mark = token.start_mark;
+				var end_mark = token.end_mark;
+				var anchor = token.value;
+				if (self.check_token ([TagToken])) {
+					var token = self.get_token ();
+					var tag_mark = token.start_mark;
+					var end_mark = token.end_mark;
+					var tag = token.value;
+				}
+			}
+			else if (self.check_token ([TagToken])) {
+				var token = self.get_token ();
+				var __left0__ = token.start_mark;
+				var start_mark = __left0__;
+				var tag_mark = __left0__;
+				var end_mark = token.end_mark;
+				var tag = token.value;
+				if (self.check_token ([AnchorToken])) {
+					var token = self.get_token ();
+					var end_mark = token.end_mark;
+					var anchor = token.value;
+				}
+			}
+			if (tag !== null) {
+				var __left0__ = tag;
+				var handle = __left0__ [0];
+				var suffix = __left0__ [1];
+				if (handle !== null) {
+					if (!__in__ (handle, self.tag_handles)) {
+						var __except0__ = ParserError ('while parsing a node', start_mark, __mod__ ('found undefined tag handle %r', handle), tag_mark);
+						__except0__.__cause__ = null;
+						throw __except0__;
+					}
+					var tag = self.tag_handles [handle] + suffix;
+				}
+				else {
+					var tag = suffix;
+				}
+			}
+			if (start_mark === null) {
+				var __left0__ = self.peek_token ().start_mark;
+				var start_mark = __left0__;
+				var end_mark = __left0__;
+			}
+			var event = null;
+			var implicit = tag === null || tag == '!';
+			if (indentless_sequence && self.check_token ([BlockEntryToken])) {
+				var end_mark = self.peek_token ().end_mark;
+				var event = SequenceStartEvent (anchor, tag, implicit, start_mark, end_mark);
+				self.state = self.parse_indentless_sequence_entry;
+			}
+			else {
+				try {
+					console.log (block);
+				}
+				catch (__except0__) {
+					print (block);
+				}
+				if (self.check_token ([ScalarToken])) {
+					var token = self.get_token ();
+					var end_mark = token.end_mark;
+					if (token.plain && tag === null || tag == '!') {
+						var implicit = tuple ([true, false]);
+					}
+					else if (tag === null) {
+						var implicit = tuple ([false, true]);
+					}
+					else {
+						var implicit = tuple ([false, false]);
+					}
+					var event = ScalarEvent (anchor, tag, implicit, token.value, start_mark, end_mark, __kwargtrans__ ({style: token.style}));
+					self.state = self.states.py_pop ();
+				}
+				else if (self.check_token ([FlowSequenceStartToken])) {
+					var end_mark = self.peek_token ().end_mark;
+					var event = SequenceStartEvent (anchor, tag, implicit, start_mark, end_mark, __kwargtrans__ ({flow_style: true}));
+					self.state = self.parse_flow_sequence_first_entry;
+				}
+				else if (self.check_token ([FlowMappingStartToken])) {
+					var end_mark = self.peek_token ().end_mark;
+					var event = MappingStartEvent (anchor, tag, implicit, start_mark, end_mark, __kwargtrans__ ({flow_style: true}));
+					self.state = self.parse_flow_mapping_first_key;
+				}
+				else if (block && self.check_token ([BlockSequenceStartToken])) {
+					var end_mark = self.peek_token ().start_mark;
+					var event = SequenceStartEvent (anchor, tag, implicit, start_mark, end_mark, __kwargtrans__ ({flow_style: false}));
+					self.state = self.parse_block_sequence_first_entry;
+				}
+				else if (block && self.check_token ([BlockMappingStartToken])) {
+					var end_mark = self.peek_token ().start_mark;
+					var event = MappingStartEvent (anchor, tag, implicit, start_mark, end_mark, __kwargtrans__ ({flow_style: false}));
+					self.state = self.parse_block_mapping_first_key;
+				}
+				else if (anchor !== null || tag !== null) {
+					var event = ScalarEvent (anchor, tag, tuple ([implicit, false]), '', start_mark, end_mark);
+					self.state = self.states.py_pop ();
+				}
+				else {
+					if (block) {
+						var node = 'block';
+					}
+					else {
+						var node = 'flow';
+					}
+					var token = self.peek_token ();
+					var __except0__ = ParserError ('while parsing a {} node'.format (node), start_mark, 'expected the node content, but found {}'.format (token.id), token.start_mark);
+					__except0__.__cause__ = null;
+					throw __except0__;
+				}
+			}
+		}
+		return event;
+	});},
+	get parse_block_sequence_first_entry () {return __get__ (this, function (self) {
+		var token = self.get_token ();
+		self.marks.append (token.start_mark);
+		return self.parse_block_sequence_entry ();
+	});},
+	get parse_block_sequence_entry () {return __get__ (this, function (self) {
+		if (self.check_token ([BlockEntryToken])) {
+			var token = self.get_token ();
+			if (!(self.check_token ([BlockEntryToken, BlockEndToken]))) {
+				self.states.append (self.parse_block_sequence_entry);
+				return self.parse_block_node ();
+			}
+			else {
+				self.state = self.parse_block_sequence_entry;
+				return self.process_empty_scalar (token.end_mark);
+			}
+		}
+		if (!(self.check_token ([BlockEndToken]))) {
+			var token = self.peek_token ();
+			var __except0__ = ParserError ('while parsing a block collection', self.marks [-(1)], __mod__ ('expected <block end>, but found %r', token.id), token.start_mark);
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		var token = self.get_token ();
+		var event = SequenceEndEvent (token.start_mark, token.end_mark);
+		self.state = self.states.py_pop ();
+		self.marks.py_pop ();
+		return event;
+	});},
+	get parse_indentless_sequence_entry () {return __get__ (this, function (self) {
+		if (self.check_token ([BlockEntryToken])) {
+			var token = self.get_token ();
+			if (!(self.check_token ([BlockEntryToken], KeyToken, ValueToken, BlockEndToken))) {
+				self.states.append (self.parse_indentless_sequence_entry);
+				return self.parse_block_node ();
+			}
+			else {
+				self.state = self.parse_indentless_sequence_entry;
+				return self.process_empty_scalar (token.end_mark);
+			}
+		}
+		var token = self.peek_token ();
+		var event = SequenceEndEvent (token.start_mark, token.start_mark);
+		self.state = self.states.py_pop ();
+		return event;
+	});},
+	get parse_block_mapping_first_key () {return __get__ (this, function (self) {
+		var token = self.get_token ();
+		self.marks.append (token.start_mark);
+		return self.parse_block_mapping_key ();
+	});},
+	get parse_block_mapping_key () {return __get__ (this, function (self) {
+		if (self.check_token ([KeyToken])) {
+			var token = self.get_token ();
+			if (!(self.check_token ([KeyToken, ValueToken, BlockEndToken]))) {
+				self.states.append (self.parse_block_mapping_value);
+				return self.parse_block_node_or_indentless_sequence ();
+			}
+			else {
+				self.state = self.parse_block_mapping_value;
+				return self.process_empty_scalar (token.end_mark);
+			}
+		}
+		if (!(self.check_token ([BlockEndToken]))) {
+			var token = self.peek_token ();
+			var __except0__ = ParserError ('while parsing a block mapping', self.marks [-(1)], __mod__ ('expected <block end>, but found %r', token.id), token.start_mark);
+			__except0__.__cause__ = null;
+			throw __except0__;
+		}
+		var token = self.get_token ();
+		var event = MappingEndEvent (token.start_mark, token.end_mark);
+		self.state = self.states.py_pop ();
+		self.marks.py_pop ();
+		return event;
+	});},
+	get parse_block_mapping_value () {return __get__ (this, function (self) {
+		if (self.check_token ([ValueToken])) {
+			var token = self.get_token ();
+			if (!(self.check_token ([KeyToken, ValueToken, BlockEndToken]))) {
+				self.states.append (self.parse_block_mapping_key);
+				return self.parse_block_node_or_indentless_sequence ();
+			}
+			else {
+				self.state = self.parse_block_mapping_key;
+				return self.process_empty_scalar (token.end_mark);
+			}
+		}
+		else {
+			self.state = self.parse_block_mapping_key;
+			var token = self.peek_token ();
+			return self.process_empty_scalar (token.start_mark);
+		}
+	});},
+	get parse_flow_sequence_first_entry () {return __get__ (this, function (self) {
+		var token = self.get_token ();
+		self.marks.append (token.start_mark);
+		return self.parse_flow_sequence_entry (__kwargtrans__ ({first: true}));
+	});},
+	get parse_flow_sequence_entry () {return __get__ (this, function (self, first) {
+		if (typeof first == 'undefined' || (first != null && first.hasOwnProperty ("__kwargtrans__"))) {;
+			var first = false;
+		};
+		if (!(self.check_token ([FlowSequenceEndToken]))) {
+			if (!(first)) {
+				if (self.check_token ([FlowEntryToken])) {
+					self.get_token ();
+				}
+				else {
+					var token = self.peek_token ();
+					var __except0__ = ParserError ('while parsing a flow sequence', self.marks [-(1)], __mod__ ("expected ',' or ']', but got %r", token.id), token.start_mark);
+					__except0__.__cause__ = null;
+					throw __except0__;
+				}
+			}
+			if (self.check_token ([KeyToken])) {
+				var token = self.peek_token ();
+				var event = MappingStartEvent (null, null, true, token.start_mark, token.end_mark, __kwargtrans__ ({flow_style: true}));
+				self.state = self.parse_flow_sequence_entry_mapping_key;
+				return event;
+			}
+			else if (!(self.check_token ([FlowSequenceEndToken]))) {
+				self.states.append (self.parse_flow_sequence_entry);
+				return self.parse_flow_node ();
+			}
+		}
+		var token = self.get_token ();
+		var event = SequenceEndEvent (token.start_mark, token.end_mark);
+		self.state = self.states.py_pop ();
+		self.marks.py_pop ();
+		return event;
+	});},
+	get parse_flow_sequence_entry_mapping_key () {return __get__ (this, function (self) {
+		var token = self.get_token ();
+		if (!(self.check_token ([ValueToken, FlowEntryToken, FlowSequenceEndToken]))) {
+			self.states.append (self.parse_flow_sequence_entry_mapping_value);
+			return self.parse_flow_node ();
+		}
+		else {
+			self.state = self.parse_flow_sequence_entry_mapping_value;
+			return self.process_empty_scalar (token.end_mark);
+		}
+	});},
+	get parse_flow_sequence_entry_mapping_value () {return __get__ (this, function (self) {
+		if (self.check_token ([ValueToken])) {
+			var token = self.get_token ();
+			if (!(self.check_token ([FlowEntryToken, FlowSequenceEndToken]))) {
+				self.states.append (self.parse_flow_sequence_entry_mapping_end);
+				return self.parse_flow_node ();
+			}
+			else {
+				self.state = self.parse_flow_sequence_entry_mapping_end;
+				return self.process_empty_scalar (token.end_mark);
+			}
+		}
+		else {
+			self.state = self.parse_flow_sequence_entry_mapping_end;
+			var token = self.peek_token ();
+			return self.process_empty_scalar (token.start_mark);
+		}
+	});},
+	get parse_flow_sequence_entry_mapping_end () {return __get__ (this, function (self) {
+		self.state = self.parse_flow_sequence_entry;
+		var token = self.peek_token ();
+		return MappingEndEvent (token.start_mark, token.start_mark);
+	});},
+	get parse_flow_mapping_first_key () {return __get__ (this, function (self) {
+		var token = self.get_token ();
+		self.marks.append (token.start_mark);
+		return self.parse_flow_mapping_key (__kwargtrans__ ({first: true}));
+	});},
+	get parse_flow_mapping_key () {return __get__ (this, function (self, first) {
+		if (typeof first == 'undefined' || (first != null && first.hasOwnProperty ("__kwargtrans__"))) {;
+			var first = false;
+		};
+		if (!(self.check_token ([FlowMappingEndToken]))) {
+			if (!(first)) {
+				if (self.check_token ([FlowEntryToken])) {
+					self.get_token ();
+				}
+				else {
+					var token = self.peek_token ();
+					var __except0__ = ParserError ('while parsing a flow mapping', self.marks [-(1)], __mod__ ("expected ',' or '}', but got %r", token.id), token.start_mark);
+					__except0__.__cause__ = null;
+					throw __except0__;
+				}
+			}
+			if (self.check_token ([KeyToken])) {
+				var token = self.get_token ();
+				if (!(self.check_token ([ValueToken, FlowEntryToken, FlowMappingEndToken]))) {
+					self.states.append (self.parse_flow_mapping_value);
+					return self.parse_flow_node ();
+				}
+				else {
+					self.state = self.parse_flow_mapping_value;
+					return self.process_empty_scalar (token.end_mark);
+				}
+			}
+			else if (!(self.check_token ([FlowMappingEndToken]))) {
+				self.states.append (self.parse_flow_mapping_empty_value);
+				return self.parse_flow_node ();
+			}
+		}
+		var token = self.get_token ();
+		var event = MappingEndEvent (token.start_mark, token.end_mark);
+		self.state = self.states.py_pop ();
+		self.marks.py_pop ();
+		return event;
+	});},
+	get parse_flow_mapping_value () {return __get__ (this, function (self) {
+		if (self.check_token ([ValueToken])) {
+			var token = self.get_token ();
+			if (!(self.check_token ([FlowEntryToken, FlowMappingEndToken]))) {
+				self.states.append (self.parse_flow_mapping_key);
+				return self.parse_flow_node ();
+			}
+			else {
+				self.state = self.parse_flow_mapping_key;
+				return self.process_empty_scalar (token.end_mark);
+			}
+		}
+		else {
+			self.state = self.parse_flow_mapping_key;
+			var token = self.peek_token ();
+			return self.process_empty_scalar (token.start_mark);
+		}
+	});},
+	get parse_flow_mapping_empty_value () {return __get__ (this, function (self) {
+		self.state = self.parse_flow_mapping_key;
+		return self.process_empty_scalar (self.peek_token ().start_mark);
+	});},
+	get process_empty_scalar () {return __get__ (this, function (self, mark) {
+		return ScalarEvent (null, null, tuple ([true, false]), '', mark, mark);
+	});}
+});
+
+//# sourceMappingURL=scanner.map
